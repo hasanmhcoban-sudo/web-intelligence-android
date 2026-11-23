@@ -1,0 +1,59 @@
+name: Build Web Intelligence APK
+
+on:
+  push:
+    paths:
+      - 'android-source.zip'
+      - '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev automake autopoint gettext
+
+      - name: Install Buildozer
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install buildozer legacy-cgi 'Cython==0.29.34'
+
+      - name: Extract Android source
+        run: |
+          unzip -q android-source.zip -d app
+          test -f app/buildozer.spec
+
+      - name: Build APK
+        working-directory: app
+        env:
+          BUILDOZER_WARN_ON_ROOT: '0'
+        run: yes | buildozer -v android debug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-intelligence-android-apk
+          path: app/bin/*.apk
+          if-no-files-found: error
+          retention-days: 14
